@@ -1,3 +1,28 @@
+// ***************************************************************************
+//
+// Delphi XML Extensions
+//
+// Copyright (c) 2017-2019 David Moorhouse
+//
+// https://github.com/fastbike/DelphiXMLExtensions
+//
+//
+// ***************************************************************************
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// *************************************************************************** }
+
 unit TestuXPathExtensions;
 {
 
@@ -12,17 +37,16 @@ unit TestuXPathExtensions;
 interface
 
 uses
-  TestFramework, System.Classes, uXPathExtensions;//, Data.DB, Datasnap.DBClient;
+  TestFramework, System.Classes, DXMLPathExtensions;
 
 type
-  // Test methods for class TContentList
+  // Test methods for class TXPathEvaluator
 
   TestXPathExtensions = class(TTestCase)
   strict private
-    FContentList: TXPathEvaluator;
+    FEvaluator: TXPathEvaluator;
   private
   public
-    procedure SetUp; override;
     procedure TearDown; override;
   published
     procedure Test1;
@@ -43,21 +67,16 @@ type
 implementation
 
 uses
-  Winapi.msxmlIntf, uXMLUtils;
+  Winapi.msxmlIntf, DXMLPathExtensions.Utils;
 
 
 
 { TestXPathExtensions }
 
-procedure TestXPathExtensions.SetUp;
-begin
-//  FContentList := TContentList.Create();
-
-end;
 
 procedure TestXPathExtensions.TearDown;
 begin
-  FContentList.Free;
+  FEvaluator.Free;
 
 end;
 
@@ -73,9 +92,9 @@ begin
   Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
   Node := Doc.documentElement;
 
-  FContentList := TXPathEvaluator.Create('not(f:contained)');
-  FContentList.Compile;
-  Actual := FContentList.Evaluate(Node);
+  FEvaluator := TXPathEvaluator.Create('not(f:contained)');
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
   CheckTrue(Actual);
 end;
 
@@ -91,9 +110,9 @@ begin
   Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
   Node := Doc.documentElement;
 
-  FContentList := TXPathEvaluator.Create('f:contained');
-  FContentList.Compile;
-  Actual := FContentList.Evaluate(Node);
+  FEvaluator := TXPathEvaluator.Create('f:contained');
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
   CheckTrue(Actual);
 end;
 
@@ -110,9 +129,9 @@ begin
   Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
   Node := Doc.documentElement;
 
-  FContentList := TXPathEvaluator.Create('parent::f:contained and f:contained');
-  FContentList.Compile;
-  Actual := FContentList.Evaluate(Node);
+  FEvaluator := TXPathEvaluator.Create('parent::f:contained and f:contained');
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
   CheckFalse(Actual);
 end;
 
@@ -128,9 +147,9 @@ begin
   Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
   Node := Doc.documentElement;
 
-  FContentList := TXPathEvaluator.Create('not(parent::f:contained and f:contained)');
-  FContentList.Compile;
-  Actual := FContentList.Evaluate(Node);
+  FEvaluator := TXPathEvaluator.Create('not(parent::f:contained and f:contained)');
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
   CheckTrue(Actual);
 end;
 
@@ -146,10 +165,10 @@ begin
   Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
   Node := Doc.documentElement;
 
-//  FContentList := TContentList.Create('not(exists(f:contained/*/f:meta/f:versionId)) and not(exists(f:contained/*/f:meta/f:lastUpdated))');
-  FContentList := TXPathEvaluator.Create('not(exists(f:contained/*/f:meta/f:versionId))');
-  FContentList.Compile;
-  Actual := FContentList.Evaluate(Node);
+//  FEvaluator := TContentList.Create('not(exists(f:contained/*/f:meta/f:versionId)) and not(exists(f:contained/*/f:meta/f:lastUpdated))');
+  FEvaluator := TXPathEvaluator.Create('not(exists(f:contained/*/f:meta/f:versionId))');
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
   CheckTrue(Actual);
 end;
 
@@ -166,10 +185,10 @@ begin
   Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
   Node := Doc.documentElement;
 
-  FContentList := TXPathEvaluator.Create('not(exists(f:contained/*/f:meta/f:versionId)) and not(exists(f:contained/*/f:meta/f:lastUpdated))');
-//  FContentList := TContentList.Create('not(exists(f:contained/*/f:meta/f:versionId))');
-  FContentList.Compile;
-  Actual := FContentList.Evaluate(Node);
+  FEvaluator := TXPathEvaluator.Create('not(exists(f:contained/*/f:meta/f:versionId)) and not(exists(f:contained/*/f:meta/f:lastUpdated))');
+//  FEvaluator := TContentList.Create('not(exists(f:contained/*/f:meta/f:versionId))');
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
   CheckTrue(Actual);
 end;
 
@@ -187,9 +206,9 @@ begin
 
   //todo: change quotes ??
 
-  FContentList := TXPathEvaluator.Create('starts-with(//f:reference/@value, "#")');
-  FContentList.Compile;
-  Actual := FContentList.Evaluate(Node);
+  FEvaluator := TXPathEvaluator.Create('starts-with(//f:reference/@value, "#")');
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
   CheckTrue(Actual);
 end;
 
@@ -206,9 +225,9 @@ begin
   Node := Doc.documentElement;
 
   //todo: change quotes ??
-  FContentList := TXPathEvaluator.Create('starts-with(//f:reference/@value, "#")');
-  FContentList.Compile;
-  Actual := FContentList.Evaluate(Node);
+  FEvaluator := TXPathEvaluator.Create('starts-with(//f:reference/@value, "#")');
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
   CheckFalse(Actual);
 end;
 
@@ -225,9 +244,9 @@ begin
   Node := Doc.documentElement;
 
   //todo: change quotes ??
-  FContentList := TXPathEvaluator.Create('not(starts-with(//f:reference/@value, ''#''))');
-  FContentList.Compile;
-  Actual := FContentList.Evaluate(Node);
+  FEvaluator := TXPathEvaluator.Create('not(starts-with(//f:reference/@value, ''#''))');
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
   CheckFalse(Actual);
 end;
 
@@ -243,9 +262,9 @@ begin
   Node := Doc.documentElement;
 
   //todo: change quotes ??
-  FContentList := TXPathEvaluator.Create('not(starts-with(//f:reference/@value, ''#''))');
-  FContentList.Compile;
-  Actual := FContentList.Evaluate(Node);
+  FEvaluator := TXPathEvaluator.Create('not(starts-with(//f:reference/@value, ''#''))');
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
   CheckTrue(Actual);
 end;
 
@@ -264,13 +283,13 @@ begin
   //todo: change quotes ??
 
 
-//  FContentList := TXPathEvaluator.Create('exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, "#")]|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, "#")])');
+//  FEvaluator := TXPathEvaluator.Create('exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, "#")]|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, "#")])');
 
-  FContentList := TXPathEvaluator.Create('ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(/f:reference/@value, "#")]');
+  FEvaluator := TXPathEvaluator.Create('ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(/f:reference/@value, "#")]');
 
 
-  FContentList.Compile;
-  Actual := FContentList.Evaluate(Node);
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
   CheckTrue(Actual);
 end;
 
@@ -286,15 +305,15 @@ begin
   Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
   Node := Doc.documentElement;
 
-  FContentList := TXPathEvaluator.Create('starts-with(//f:reference/@value, "#") or starts-with(//f:reference/@value, "?")');
-//  FContentList := TXPathEvaluator.Create('not(starts-with(//f:reference/@value, ''#''))');
+  FEvaluator := TXPathEvaluator.Create('starts-with(//f:reference/@value, "#") or starts-with(//f:reference/@value, "?")');
+//  FEvaluator := TXPathEvaluator.Create('not(starts-with(//f:reference/@value, ''#''))');
 
 
-//  FContentList := TXPathEvaluator.Create('(count(f:numerator) = count(f:denominator))');// and ((count(f:numerator) > 0) or (count(f:extension) > 0))
+//  FEvaluator := TXPathEvaluator.Create('(count(f:numerator) = count(f:denominator))');// and ((count(f:numerator) > 0) or (count(f:extension) > 0))
 //  (count(f:numerator) = count(f:denominator)) and ((count(f:numerator) > 0) or (count(f:extension) > 0))
 
-  FContentList.Compile;
-  Actual := FContentList.Evaluate(Node);
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
   CheckTrue(Actual);
 end;
 
