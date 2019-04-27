@@ -61,6 +61,7 @@ type
     procedure Test5c;
     procedure Test6;
     procedure Test7;
+    procedure Test8;
   end;
 
 
@@ -290,7 +291,7 @@ begin
 
   FEvaluator.Compile;
   Actual := FEvaluator.Evaluate(Node);
-  CheckTrue(Actual);
+  CheckFalse(Actual);
 end;
 
 
@@ -301,7 +302,7 @@ var
   Node: IXMLDOMNode;
   Actual: Boolean;
 begin
-  Text := '<?xml version="1.0"?><Patient xmlns="http://hl7.org/fhir"><subject><reference value="pat1"/></subject></Patient>';
+  Text := '<?xml version="1.0"?><Patient xmlns="http://hl7.org/fhir"><subject><reference value="?pat1"/></subject></Patient>';
   Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
   Node := Doc.documentElement;
 
@@ -316,6 +317,33 @@ begin
   Actual := FEvaluator.Evaluate(Node);
   CheckTrue(Actual);
 end;
+
+
+procedure TestXPathExtensions.Test8;
+var
+  Text: string;
+  Doc: IXMLDOMDocument3;
+  Node: IXMLDOMNode;
+  Actual: Boolean;
+begin
+  Text := '<?xml version="1.0"?><Patient xmlns="http://hl7.org/fhir"><subject><reference value="pat1"/></subject></Patient>';
+  Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
+  Node := Doc.documentElement;
+
+//  FEvaluator := TXPathEvaluator.Create('starts-with(//f:reference/@value, "#") or starts-with(//f:reference/@value, "?")');
+//  FEvaluator := TXPathEvaluator.Create('not(starts-with(//f:reference/@value, ''#'') or starts-with(//f:reference/@value, "?"))');
+
+
+  FEvaluator := TXPathEvaluator.Create('(count(//f:numerator) = count(//f:denominator))');// and ((count(f:numerator) > 0) or (count(f:extension) > 0))
+//  (count(f:numerator) = count(f:denominator)) and ((count(f:numerator) > 0) or (count(f:extension) > 0))
+
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
+  CheckTrue(Actual);
+end;
+
+
+
 
 
 initialization
