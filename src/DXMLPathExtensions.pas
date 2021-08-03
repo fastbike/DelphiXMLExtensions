@@ -27,7 +27,7 @@ unit DXMLPathExtensions;
 
 (*
   expression: Xpath text that returns a set of Nodes
-  comparators: = , <>, < , <=, > , >=
+  comparators: = , !=, < , <=, > , >=
   logical: and, or, not
 
   enumeration: for Node in Expression
@@ -35,6 +35,32 @@ unit DXMLPathExtensions;
 
   ?? exists(expression)
 *)
+(* XML validation
+  not(parent::f:contained and f:contained)
+
+  not(exists(f:contained/*/f:meta/f:versionId)) and not(exists(f:contained/*/f:meta/f:lastUpdated))
+  not(exists(for $id in f:contained/*/@id return $id[not(ancestor::f:contained/parent::*/descendant::f:reference/@value=concat('#', $id))]))
+  not(starts-with(f:reference/@value, '#')) or exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')]|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')])
+
+
+  exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])
+  not(exists(f:code)) or exists(f:system)
+  not(exists(f:comparator))
+  not(exists(f:code)) or exists(f:system)
+
+  (count(f:numerator) = count(f:denominator)) and ((count(f:numerator) > 0) or (count(f:extension) > 0))
+
+
+
+  so will need to handle:
+  - operators: not, and, or  ,equality/comparison
+  - enumeration: for / return
+  - functions: exists, concat
+
+
+
+*)
+
 
 interface
 
@@ -75,30 +101,27 @@ type
 
   IXPathStatement = interface(IXPathTerm)
     ['{38F24C3D-6BCB-4A4A-8019-0FAD8ECEB93A}']
-//    function Evaluate(Node: IXMLDOMNode): Boolean; overload;
      function Evaluate(Node: IXMLDOMNode): TValue; overload;
   end;
 
-  TXPathStatements = TArray<IXPathStatement>;
+//  TXPathStatements = TArray<IXPathStatement>;
 
   // some xpressions can return a set of nodes
   // e.g. '/*'
   // others will return a single node
   // e.g. '/*[0]'  (or the for in enumerator )
 
+  //todo: need unknow ?
   TComparator = (eq, ne, lt, lte, gt, gte);
 
   TXPathComparator = class(TInterfacedObject, IXPathStatement)
   private
     FComparator: TComparator;
-//    FLeft, FRight: IXPathExpression;
     FLeftTerm, FRightTerm: IXPathTerm;
     function ComparatorFromString(AComparator: string): TComparator;
   protected
-//    function Evaluate(Node: IXMLDOMNode): Boolean; overload;
      function Evaluate(Node: IXMLDOMNode): TValue; overload;
   public
-//    constructor Create(AComparator: string; Args: TXPathExpressions);
     constructor Create(AComparator: string; Args: TXPathTerms);
   end;
 
@@ -110,7 +133,6 @@ type
     FTerm: IXPathTerm;
     function UnaryFromString(AUnary: string): TUnaryOperator;
   protected
-//    function Evaluate(Node: IXMLDOMNode): Boolean; overload;
      function Evaluate(Node: IXMLDOMNode): TValue; overload;
   public
     constructor Create(AUnary: string; Args: TXPathTerms);
@@ -124,7 +146,6 @@ type
     FBinary: TBinaryOperator;
     function BinaryFromString(ABinary: string): TBinaryOperator;
   protected
-//    function Evaluate(Node: IXMLDOMNode): Boolean; overload;
      function Evaluate(Node: IXMLDOMNode): TValue; overload;
   public
     constructor Create(ABinary: string; Args: TXPathTerms);
@@ -135,25 +156,22 @@ type
     FFunction: string;
     FArgs: TXPathTerms;
   protected
-//    function Evaluate(Node: IXMLDOMNode): Boolean; overload;
      function Evaluate(Node: IXMLDOMNode): TValue; overload;
-//    function Evaluate(Nodes: IXMLDOMNodeList): TValue; overload;
   public
     constructor Create(AFunction: string; Args: TXPathTerms);
   end;
 
   TXPathEvaluator = class(TList<IXPathStatement>)
   private
-    FContentTemplate: AnsiString;
-    RememberStrings: TStrings;
+    FContentTemplate: string;// AnsiString;
     FTrimWhiteSpace: Boolean;
-    procedure Error(const Msg: AnsiString);
-    procedure ParseInner(const S: AnsiString);
+//    procedure Error(const Msg: string);
+    procedure ParseInner(const S: string);
   public
-    constructor Create(const AContentTemplate: AnsiString);
-    destructor Destroy; override;
+//    constructor Create(const AContentTemplate: AnsiString);
+    constructor Create(const AContentTemplate: string);
     procedure Compile;
-    property ContentTemplate: AnsiString read FContentTemplate;
+    property ContentTemplate: string read FContentTemplate;
     property TrimWhiteSpace: Boolean read FTrimWhiteSpace write FTrimWhiteSpace;
     function Evaluate(Node: IXMLDOMNode): Boolean;
   end;
@@ -165,24 +183,18 @@ uses
 
 { TXPathEvaluator }
 
-constructor TXPathEvaluator.Create(const AContentTemplate: AnsiString);
+constructor TXPathEvaluator.Create(const AContentTemplate: string);
+//constructor TXPathEvaluator.Create(const AContentTemplate: AnsiString);
 begin
   inherited Create;
   FTrimWhiteSpace := True;
   FContentTemplate := AContentTemplate;
-  RememberStrings := TStringList.Create;
 end;
 
-destructor TXPathEvaluator.Destroy;
-begin
-  FreeAndNil(RememberStrings);
-  inherited Destroy;
-end;
-
-procedure TXPathEvaluator.Error(const Msg: AnsiString);
-begin
-  raise Exception.Create(Msg);
-end;
+//procedure TXPathEvaluator.Error(const Msg: string);
+//begin
+//  raise Exception.Create(Msg);
+//end;
 
 function TXPathEvaluator.Evaluate(Node: IXMLDOMNode): Boolean;
 var
@@ -191,7 +203,6 @@ begin
   Result := True;
   for Statement in Self do
   begin
-    // ?? need to convert to boolean
     Result := Result and Statement.Evaluate(Node).AsBoolean;
   end;
 end;
@@ -199,10 +210,10 @@ end;
 type
   TTokenType = (tkUnknown, tkXPathExpression, tkUnary, tkBinary, tkFunction, tkParameter, tkBlank, tkComparator);
 
-procedure TXPathEvaluator.ParseInner(const S: AnsiString);
+procedure TXPathEvaluator.ParseInner(const S: string);
 var
-  StartP: PAnsiChar;
-  P: PAnsiChar;
+  StartP: PWideChar;// PAnsiChar;
+  P: PWideChar;//PAnsiChar;
   Token: string;
   TokenType: TTokenType;
   TermStack: TXPathTerms;
@@ -228,14 +239,14 @@ var
       exit // discard blank tokens, will be before next token
 
 
-    else if SameText('=', Token) then  //todo: add other comparators
+    else if SameText('=', Token) or SameText('!=', Token) or SameText('<', Token) or SameText('<=', Token) or SameText('>', Token) or SameText('>=', Token)then
       TokenType := tkComparator
 
     else if SameText('not', Token) then
       TokenType := tkUnary
     else if SameText('and', Token) or SameText('or', Token) then
       TokenType := tkBinary
-    else if SameText('exists', Token) or SameText('starts-with', Token) or SameText('count', Token) then
+    else if SameText('exists', Token) or SameText('concat', Token) or SameText('starts-with', Token) or SameText('count', Token) then
       TokenType := tkFunction
     else
     begin
@@ -246,9 +257,9 @@ var
     TokenStack.AddObject(Token, TObject(TokenType));
   end;
 
-  procedure CaptureToken(Right: PAnsiChar);
+  procedure CaptureToken(Right: PWideChar);//PAnsiChar);
   var
-    Left: PAnsiChar;
+    Left: PWideChar;//PAnsiChar;
     TokenText: string;
   begin // ?? do we need to check if we are entering a function here ??
     Left := StartP;
@@ -258,7 +269,7 @@ var
 
   procedure PopToken;
   var
-    Stmt, Stmt2: IXPathStatement;
+    Stmt(*, Stmt2*): IXPathStatement;
     LTermText: string;
   begin
     if TokenStack.Count = 0 then
@@ -298,14 +309,13 @@ var
         end;
       tkFunction:
         begin
-          if LTermText = 'starts-with' then
+          if (LTermText = 'starts-with') or (LTermText = 'concat') then
             while Length(TermStack) < 2 do
             begin
               AddTermToStack(Last);
               Remove(Last);
-            end;
-
-          if (LTermText = 'exists') or (LTermText = 'count') then
+            end
+          else if (LTermText = 'exists') or (LTermText = 'count') then
             while Length(TermStack) < 1 do
             begin
               AddTermToStack(Last);
@@ -330,9 +340,9 @@ var
   end;
 
   procedure ProcessToken(AddTerm: Boolean);
-  var
-    Stmt, Stmt2: IXPathStatement;
-    LTermText: string;
+//  var
+//    Stmt, Stmt2: IXPathStatement;
+//    LTermText: string;
   begin
 
     if Token <> '' then
@@ -359,7 +369,7 @@ begin
     TokenStack := TStringList.Create;
     TokenStack.Duplicates := dupAccept;
 
-    P := PAnsiChar(S);
+    P := PWideChar(s);// PAnsiChar(S);
     StartP := P;
     while P^ <> #0 do
     begin
@@ -412,13 +422,13 @@ begin
             StartP := P + 1;
           end;
         '=', '<', '>', '!':  // comparators
+        //todo: needs to skip over predicates where just checking for a match
+          if (BracketLevel = 0) then
           begin
            // peek ahead
             if SameText(P[1], '=') then
              Inc(P);
            CaptureToken(P);
-
-
            StartP := P + 1;
           end;
       end;
@@ -452,7 +462,7 @@ function TXPathComparator.ComparatorFromString(AComparator: string): TComparator
 begin
   if SameText('=', AComparator) then
     Result := eq
-  else if SameText('<>', AComparator) then
+  else if SameText('!=', AComparator) then
     Result := ne
   else if SameText('<', AComparator) then
     Result := lt
@@ -460,49 +470,31 @@ begin
     Result := lte
   else if SameText('>', AComparator) then
     Result := gt
-  else if SameText('>=', AComparator) then
+//  else if SameText('>=', AComparator) then
+  else
     Result := gte;
 end;
-
-//constructor TXPathComparator.Create(AComparator: string; Args: TXPathExpressions);
-//begin
-//  inherited Create;
-//  Assert(Length(Args) = 2, 'Comparators must have two arguments');
-//  FLeft := Args[0];
-//  FRight := Args[1];
-//  FComparator := ComparatorFromString(AComparator);
-//end;
 
 constructor TXPathComparator.Create(AComparator: string; Args: TXPathTerms);
 begin
   inherited Create;
   Assert(Length(Args) = 2, 'Comparators must have two arguments');
-  FLeftTerm := Args[0];
-  FRightTerm := Args[1];
+  FLeftTerm := Args[1];
+  FRightTerm := Args[0];
   FComparator := ComparatorFromString(AComparator);
 end;
 
-function TXPathComparator.Evaluate(Node: IXMLDOMNode): TValue;// Boolean;
+function TXPathComparator.Evaluate(Node: IXMLDOMNode): TValue;
 var
   LeftExpression, RightExpression: IXPathExpression;
   LeftStatement, RightStatement: IXPathStatement;
   LeftNodes, RightNodes: IXMLDOMNodeList;
-  LeftResult, RightResult: TValue;// Boolean;
-
-
-
+  LeftResult, RightResult: TValue;
 begin
-  //raise EProgrammerNotFound.Create('Not yet implemented');
-  // todo:
-
   if Supports(FLeftTerm, IXPathExpression, LeftExpression) then
   begin
-//    LeftExpression.GetValue;
-
-
     LeftNodes := LeftExpression.Evaluate(Node);
     LeftResult := LeftNodes.length;
-//    LeftResult := (LeftNodes <> nil) and (LeftNodes.Length > 0);
   end
   else if Supports(FLeftTerm, IXPathStatement, LeftStatement) then
     LeftResult := LeftStatement.Evaluate(Node);
@@ -511,32 +503,33 @@ begin
   begin
     RightNodes := RightExpression.Evaluate(Node);
     RightResult := RightNodes.length;
-//    RightResult := (RightNodes <> nil) and (RightNodes.Length > 0);
   end
   else if Supports(FRightTerm, IXPathStatement, RightStatement) then
     RightResult := RightStatement.Evaluate(Node);
 
+  // todo: handle non integer results
   case FComparator of
     eq:
       begin
-       // if left expression is contained in a function
-       // then evaulate that function aginst the nodes that match this expression
        Result := LeftResult.AsInteger = RightResult.AsInteger;
-
-
-
-
       end;
     ne:
-      ;
+      case LeftResult.Kind of
+        tkInteger, tkInt64:
+          Result := LeftResult.AsInteger <> RightResult.AsInteger;
+        tkEnumeration:
+          Result := LeftResult.AsBoolean <> RightResult.AsBoolean;
+        else
+          raise EProgrammerNotFound.Create('Not yet implemented');
+      end;
     lt:
-      ;
+       Result := LeftResult.AsInteger < RightResult.AsInteger;
     lte:
-      ;
+       Result := LeftResult.AsInteger <= RightResult.AsInteger;
     gt:
-      ;
+       Result := LeftResult.AsInteger > RightResult.AsInteger;
     gte:
-      ;
+       Result := LeftResult.AsInteger >= RightResult.AsInteger;
   end;
 end;
 
@@ -546,7 +539,8 @@ function TXPathBinary.BinaryFromString(ABinary: string): TBinaryOperator;
 begin
   if SameText('and', ABinary) then
     Result := _and
-  else if SameText('or', ABinary) then
+//  else if SameText('or', ABinary) then
+  else
     Result := _or;
 end;
 
@@ -559,7 +553,7 @@ begin
   FBinary := BinaryFromString(ABinary);
 end;
 
-function TXPathBinary.Evaluate(Node: IXMLDOMNode): TValue;// Boolean;
+function TXPathBinary.Evaluate(Node: IXMLDOMNode): TValue;
 var
   LeftStatement, RightStatement: IXPathStatement;
   LeftExpression, RightExpression: IXPathExpression;
@@ -567,6 +561,9 @@ var
   LeftResult, RightResult: Boolean;
 begin
   Result := False;
+  LeftResult := False;
+  RightResult := False;
+
   if Supports(FLeftTerm, IXPathExpression, LeftExpression) then
   begin
     LeftNodes := LeftExpression.Evaluate(Node);
@@ -603,7 +600,7 @@ begin
   FUnary := UnaryFromString(AUnary);
 end;
 
-function TXPathUnary.Evaluate(Node: IXMLDOMNode): TValue;// Boolean;
+function TXPathUnary.Evaluate(Node: IXMLDOMNode): TValue;
 var
   Statement: IXPathStatement;
   Expression: IXPathExpression;
@@ -630,7 +627,8 @@ function TXPathUnary.UnaryFromString(AUnary: string): TUnaryOperator;
 begin
   if SameText('', AUnary) then
     Result := straight
-  else if SameText('not', AUnary) then
+  //else if SameText('not', AUnary) then
+  else
     Result := negation;
 end;
 
@@ -644,7 +642,11 @@ end;
 
 function TXPathExpression.Evaluate(Node: IXMLDOMNode): IXMLDOMNodeList;
 begin
-  Result := Node.selectNodes(FXPath);
+//  try
+    Result := Node.selectNodes(FXPath);
+//  except
+//    Result := nil; // should this be logged ?
+//  end;
 end;
 
 function TXPathExpression.GetValue: string;
@@ -667,7 +669,7 @@ begin
   end;
 end;
 
-function TXPathFunction.Evaluate(Node: IXMLDOMNode): TValue;// Boolean;
+function TXPathFunction.Evaluate(Node: IXMLDOMNode): TValue;
 var
   Statement: IXPathStatement;
   Expression: IXPathExpression;
@@ -675,6 +677,7 @@ var
   Match: string;
 begin
   Result := False;
+
 
   if SameText('exists', FFunction) then
   begin
@@ -685,6 +688,20 @@ begin
     end
     else if Supports(FArgs[0], IXPathStatement, Statement) then
       Result := Statement.Evaluate(Node);
+  end
+  else if SameText('concat', FFunction) then
+  begin
+    if Supports(FArgs[0], IXPathExpression, Expression) then
+    begin
+      Nodes := Expression.Evaluate(Node);
+      if Supports(FArgs[1], IXPathExpression, Expression) then
+      begin
+        Match := Expression.GetValue; // strip off the quotes
+        Match := Match.Replace('''', '').Replace('"', '');
+        if (Nodes <> nil) and (Nodes.Length = 1) then // todo: iterate through nodes ??
+          Result := Pos(Match, Nodes[0].nodeValue) = 1;
+      end;
+    end;
   end
   else if SameText('starts-with', FFunction) then
   begin
@@ -711,22 +728,10 @@ begin
     end
     else if Supports(FArgs[0], IXPathStatement, Statement) then
       Result := Statement.Evaluate(Node);
-
-
-//    if Nodes <> nil then
-//      Result := Nodes.length;
   end;
 
 end;
 
-//function TXPathFunction.Evaluate(Nodes: IXMLDOMNodeList): TValue;
-//begin
-//  if SameText('count', FFunction) then
-//  begin
-//    Result := 0;
-//    if Nodes <> nil then
-//      Result := Nodes.length;
-//  end;
-//end;
 
 end.
+

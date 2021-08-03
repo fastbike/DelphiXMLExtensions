@@ -62,6 +62,8 @@ type
     procedure Test6;
     procedure Test7;
     procedure Test8;
+    procedure Test9;
+    procedure Test10;
   end;
 
 
@@ -334,7 +336,7 @@ begin
 //  FEvaluator := TXPathEvaluator.Create('not(starts-with(//f:reference/@value, ''#'') or starts-with(//f:reference/@value, "?"))');
 
 
-  FEvaluator := TXPathEvaluator.Create('(count(//f:numerator) = count(//f:denominator))');// and ((count(f:numerator) > 0) or (count(f:extension) > 0))
+  FEvaluator := TXPathEvaluator.Create('(count(//f:reference) >= count(/f:subject))');// and ((count(f:numerator) > 0) or (count(f:extension) > 0))
 //  (count(f:numerator) = count(f:denominator)) and ((count(f:numerator) > 0) or (count(f:extension) > 0))
 
   FEvaluator.Compile;
@@ -342,6 +344,47 @@ begin
   CheckTrue(Actual);
 end;
 
+procedure TestXPathExtensions.Test9;
+var
+  Text: string;
+  Doc: IXMLDOMDocument3;
+  Node: IXMLDOMNode;
+  Actual: Boolean;
+begin
+  Text := '<?xml version="1.0"?><Patient xmlns="http://hl7.org/fhir"><subject><reference value="pat1"/></subject></Patient>';
+  Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
+  Node := Doc.documentElement;
+
+  FEvaluator := TXPathEvaluator.Create('not(starts-with(f:reference/@value, "#")) or exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, "#")]'
+    + '|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, "#")])');
+
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
+  CheckTrue(Actual);
+end;
+
+procedure TestXPathExtensions.Test10;
+var
+  Text: string;
+  Doc: IXMLDOMDocument3;
+  Node: IXMLDOMNode;
+  Actual: Boolean;
+begin
+  Text := '<?xml version="1.0"?><Patient xmlns="http://hl7.org/fhir"><subject><reference value="pat1"/></subject></Patient>';
+  Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
+  Node := Doc.documentElement;
+
+//'not(exists(for $id in f:contained/*/@id return $id[not(ancestor::f:contained/parent::*/descendant::f:reference/@value=concat(''#'', $id))]))'
+
+  // this is broken as it cannot handle the first "=" symbol
+  FEvaluator := TXPathEvaluator.Create('not(exists(ancestor::f:contained/parent::*/descendant::f:reference/@value=concat("#", "123")))');
+
+
+
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
+  CheckTrue(Actual);
+end;
 
 
 
@@ -352,3 +395,4 @@ initialization
 RegisterTests([TestXPathExtensions.Suite]);
 
 end.
+

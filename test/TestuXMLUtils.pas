@@ -60,6 +60,10 @@ type
 
     procedure TestInsertElementWithAttribute;
 
+    procedure TestInsertElementWithAttributeNoNS;
+    procedure TestInsertElementWithAttributeNoTopLevelNS;
+
+
 
     procedure TestAppenAttribute_Normal;
 
@@ -220,6 +224,55 @@ begin
 
 end;
 
+procedure TestTXPath.TestInsertElementWithAttributeNoNS;
+var
+  Actual, Expected: string;
+  Doc: IXMLDOMDocument3;
+  Nodes: IXMLDOMNodeList;
+  Parent, Node: IXMLDOMNode;
+begin
+  Doc := TXPath.Create('<?xml version="1.0" encoding="UTF-8"?><Patient>' +
+    '<identifier><use value="common"/><value value="ZAA0121"/><system value="NHI"/></identifier>' +
+    '</Patient>', ['http://hl7.org/fhir'], ['f']);
+
+  Expected := '<?xml version="1.0"?><Patient>' +
+    '<Test value="abc"/><identifier><use value="common"/><value value="ZAA0121"/><system value="NHI"/></identifier>' +
+    '</Patient>';
+  Nodes := Doc.selectNodes('/f:Patient');
+  CheckEquals(0, Nodes.length);
+
+  Nodes := Doc.selectNodes('Patient');
+  Parent := Nodes[0];
+  Node := TXPath.InsertElementWithValueAttribute(Parent, 'Test', 'abc');
+  Actual := Doc.Xml;
+  CheckEquals(Expected, Actual);
+end;
+
+procedure TestTXPath.TestInsertElementWithAttributeNoTopLevelNS;
+var
+  Actual, Expected: string;
+  Doc: IXMLDOMDocument3;
+  Nodes: IXMLDOMNodeList;
+  Parent, Node: IXMLDOMNode;
+begin
+  Doc := TXPath.Create('<?xml version="1.0" encoding="UTF-8"?><Patient>' +
+    '<identifier xmlns="http://hl7.org/fhir"><use value="common"/><value value="ZAA0121"/><system value="NHI"/></identifier>' +
+    '</Patient>', ['http://hl7.org/fhir'], ['f']);
+
+  Expected := '<?xml version="1.0"?><Patient>' +
+    '<Test value="abc"/><identifier xmlns="http://hl7.org/fhir"><use value="common"/><value value="ZAA0121"/><system value="NHI"/></identifier>' +
+    '</Patient>';
+  Nodes := Doc.selectNodes('/f:Patient');
+  CheckEquals(0, Nodes.length);
+
+  Nodes := Doc.selectNodes('Patient');
+  Parent := Nodes[0];
+  Node := TXPath.InsertElementWithValueAttribute(Parent, 'Test', 'abc');
+  Actual := Doc.Xml;
+  CheckEquals(Expected, Actual);
+end;
+
+
 procedure TestTXPath.TestInsertElement_Normal;
 var
   Actual, Expected: string;
@@ -284,3 +337,4 @@ initialization
 RegisterTest(TestTXPath.Suite);
 
 end.
+
