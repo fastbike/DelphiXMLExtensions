@@ -2,7 +2,7 @@
 //
 // Delphi XML Extensions
 //
-// Copyright (c) 2017-2019 David Moorhouse
+// Copyright (c) 2017-2021 David Moorhouse
 //
 // https://github.com/fastbike/DelphiXMLExtensions
 //
@@ -61,7 +61,6 @@ unit DXMLPathExtensions;
 
 *)
 
-
 interface
 
 uses
@@ -85,6 +84,7 @@ type
     ['{85C694B4-7E40-4FAC-8F94-BF625D640AE2}']
     function Evaluate(Node: IXMLDOMNode): IXMLDOMNodeList;
     function GetValue: string;
+    function IsAttribute: Boolean;
   end;
 
   TXPathExpressions = TArray<IXPathExpression>;
@@ -95,23 +95,39 @@ type
   protected
     function Evaluate(Node: IXMLDOMNode): IXMLDOMNodeList;
     function GetValue: string;
+    function IsAttribute: Boolean;
   public
     constructor Create(AXPath: string);
   end;
 
   IXPathStatement = interface(IXPathTerm)
     ['{38F24C3D-6BCB-4A4A-8019-0FAD8ECEB93A}']
-     function Evaluate(Node: IXMLDOMNode): TValue; overload;
+    function Evaluate(Node: IXMLDOMNode): TValue; overload;
   end;
 
-//  TXPathStatements = TArray<IXPathStatement>;
+  IXPathConstant = interface(IXPathTerm)
+    ['{5E4C543A-27D3-45F7-BEE8-1EDD60E272A5}']
+    function GetValue: TValue;
+  end;
+
+  TXPathConstant = class(TInterfacedObject, IXPathTerm, IXPathConstant)
+  private
+    FValue: TValue;
+  protected
+    function GetValue: Tvalue;
+  public
+    constructor Create(AValue: string);
+  end;
+
+
+  // TXPathStatements = TArray<IXPathStatement>;
 
   // some xpressions can return a set of nodes
   // e.g. '/*'
   // others will return a single node
   // e.g. '/*[0]'  (or the for in enumerator )
 
-  //todo: need unknow ?
+  // todo: need unknown ?
   TComparator = (eq, ne, lt, lte, gt, gte);
 
   TXPathComparator = class(TInterfacedObject, IXPathStatement)
@@ -120,7 +136,7 @@ type
     FLeftTerm, FRightTerm: IXPathTerm;
     function ComparatorFromString(AComparator: string): TComparator;
   protected
-     function Evaluate(Node: IXMLDOMNode): TValue; overload;
+    function Evaluate(Node: IXMLDOMNode): TValue; overload;
   public
     constructor Create(AComparator: string; Args: TXPathTerms);
   end;
@@ -133,7 +149,7 @@ type
     FTerm: IXPathTerm;
     function UnaryFromString(AUnary: string): TUnaryOperator;
   protected
-     function Evaluate(Node: IXMLDOMNode): TValue; overload;
+    function Evaluate(Node: IXMLDOMNode): TValue; overload;
   public
     constructor Create(AUnary: string; Args: TXPathTerms);
   end;
@@ -146,7 +162,7 @@ type
     FBinary: TBinaryOperator;
     function BinaryFromString(ABinary: string): TBinaryOperator;
   protected
-     function Evaluate(Node: IXMLDOMNode): TValue; overload;
+    function Evaluate(Node: IXMLDOMNode): TValue; overload;
   public
     constructor Create(ABinary: string; Args: TXPathTerms);
   end;
@@ -156,19 +172,18 @@ type
     FFunction: string;
     FArgs: TXPathTerms;
   protected
-     function Evaluate(Node: IXMLDOMNode): TValue; overload;
+    function Evaluate(Node: IXMLDOMNode): TValue; overload;
   public
     constructor Create(AFunction: string; Args: TXPathTerms);
   end;
 
   TXPathEvaluator = class(TList<IXPathStatement>)
   private
-    FContentTemplate: string;// AnsiString;
+    FContentTemplate: string; 
     FTrimWhiteSpace: Boolean;
-//    procedure Error(const Msg: string);
+    // procedure Error(const Msg: string);
     procedure ParseInner(const S: string);
   public
-//    constructor Create(const AContentTemplate: AnsiString);
     constructor Create(const AContentTemplate: string);
     procedure Compile;
     property ContentTemplate: string read FContentTemplate;
@@ -184,17 +199,16 @@ uses
 { TXPathEvaluator }
 
 constructor TXPathEvaluator.Create(const AContentTemplate: string);
-//constructor TXPathEvaluator.Create(const AContentTemplate: AnsiString);
 begin
   inherited Create;
   FTrimWhiteSpace := True;
   FContentTemplate := AContentTemplate;
 end;
 
-//procedure TXPathEvaluator.Error(const Msg: string);
-//begin
-//  raise Exception.Create(Msg);
-//end;
+// procedure TXPathEvaluator.Error(const Msg: string);
+// begin
+// raise Exception.Create(Msg);
+// end;
 
 function TXPathEvaluator.Evaluate(Node: IXMLDOMNode): Boolean;
 var
@@ -212,14 +226,14 @@ type
 
 procedure TXPathEvaluator.ParseInner(const S: string);
 var
-  StartP: PWideChar;// PAnsiChar;
-  P: PWideChar;//PAnsiChar;
+  StartP: PWideChar;
+  P: PWideChar;
   Token: string;
   TokenType: TTokenType;
   TermStack: TXPathTerms;
   TokenStack: TStringList;
   BracketLevel: Integer;
-  ProcessingParams, ProcessingComparators: Boolean;
+  ProcessingParams: Boolean;
 
   procedure AddTermToStack(Expression: IXPathTerm);
   var
@@ -231,23 +245,35 @@ var
   end;
 
   procedure AddTokenToStack(Token: string);
+  var
+    TmpToken: Int64;
   begin
     if ProcessingParams then
       TokenType := tkParameter
     else if Token = '' then
-      // TokenType := tkBlank
       exit // discard blank tokens, will be before next token
 
-
-    else if SameText('=', Token) or SameText('!=', Token) or SameText('<', Token) or SameText('<=', Token) or SameText('>', Token) or SameText('>=', Token)then
+    else if SameText('=', Token) or SameText('!=', Token) or SameText('<>', Token) or SameText('<', Token) or SameText('<=', Token) or SameText('>', Token)
+      or SameText('>=', Token) then
       TokenType := tkComparator
 
     else if SameText('not', Token) then
       TokenType := tkUnary
     else if SameText('and', Token) or SameText('or', Token) then
       TokenType := tkBinary
-    else if SameText('exists', Token) or SameText('concat', Token) or SameText('starts-with', Token) or SameText('count', Token) then
+    else if SameText('exists', Token) or SameText('concat', Token) or SameText('starts-with', Token) or SameText('count', Token)
+    then
       TokenType := tkFunction
+    else if Token.StartsWith('''') or Token.StartsWith('"')  then
+    begin
+      AddTermToStack(TXPathConstant.Create(Token));
+      exit;
+    end
+    else if TmpToken.TryParse(Token, TmpToken) then
+    begin
+      AddTermToStack(TXPathConstant.Create(Token));
+      exit;
+    end
     else
     begin
       AddTermToStack(TXPathExpression.Create(Token));
@@ -257,9 +283,9 @@ var
     TokenStack.AddObject(Token, TObject(TokenType));
   end;
 
-  procedure CaptureToken(Right: PWideChar);//PAnsiChar);
+  procedure CaptureToken(Right: PWideChar);
   var
-    Left: PWideChar;//PAnsiChar;
+    Left: PWideChar;
     TokenText: string;
   begin // ?? do we need to check if we are entering a function here ??
     Left := StartP;
@@ -269,7 +295,7 @@ var
 
   procedure PopToken;
   var
-    Stmt(*, Stmt2*): IXPathStatement;
+    Stmt: IXPathStatement;
     LTermText: string;
   begin
     if TokenStack.Count = 0 then
@@ -340,12 +366,18 @@ var
   end;
 
   procedure ProcessToken(AddTerm: Boolean);
-//  var
-//    Stmt, Stmt2: IXPathStatement;
-//    LTermText: string;
+  var
+    TmpToken: Int64;
   begin
-
-    if Token <> '' then
+    if Token.StartsWith('''') or Token.StartsWith('"') then
+    begin
+      AddTermToStack(TXPathConstant.Create(Token));
+    end
+    else if TmpToken.TryParse(Token, TmpToken) then
+    begin
+      AddTermToStack(TXPathConstant.Create(Token));
+    end
+    else if Token <> '' then
     begin
       AddTermToStack(TXPathExpression.Create(Token));
     end
@@ -364,12 +396,11 @@ var
 begin
   try
     ProcessingParams := False;
-    ProcessingComparators := False;
     BracketLevel := 0;
     TokenStack := TStringList.Create;
     TokenStack.Duplicates := dupAccept;
 
-    P := PWideChar(s);// PAnsiChar(S);
+    P := PWideChar(S);
     StartP := P;
     while P^ <> #0 do
     begin
@@ -378,16 +409,12 @@ begin
           if BracketLevel = 0 then
           begin
             CaptureToken(P - 1);
-            // capture token
-            // start term
-            // reset start
             StartP := P + 1;
           end;
         ')':
           if BracketLevel = 0 then
           begin
             ProcessingParams := False;
-            ProcessingComparators := False;
             SetString(Token, StartP, P - StartP);
             ProcessToken(True);
             // end term
@@ -402,34 +429,27 @@ begin
           if BracketLevel = 0 then
           begin // need to swallow spaces
             ProcessingParams := True;
-            // CaptureToken(P - 1);
             SetString(Token, StartP, P - StartP);
             ProcessToken(False);
-            // capture token as param
-            // process param
-            // reset start
             StartP := P + 1;
           end;
         ' ':
-          if ProcessingParams or ProcessingComparators then
+          if ProcessingParams then
             StartP := P + 1
           else if (BracketLevel = 0) then
           begin
             CaptureToken(P - 1);
-            // capture token
-            // process token
-            // reset start ?
             StartP := P + 1;
           end;
-        '=', '<', '>', '!':  // comparators
-        //todo: needs to skip over predicates where just checking for a match
+        '=', '<', '>', '!': // comparators
+          // todo: needs to skip over predicates where just checking for a match
           if (BracketLevel = 0) then
           begin
-           // peek ahead
-            if SameText(P[1], '=') then
-             Inc(P);
-           CaptureToken(P);
-           StartP := P + 1;
+            // peek ahead
+            if P[1] in ['>', '='] then
+              Inc(P);
+            CaptureToken(P);
+            StartP := P + 1;
           end;
       end;
       Inc(P);
@@ -464,15 +484,18 @@ begin
     Result := eq
   else if SameText('!=', AComparator) then
     Result := ne
+  else if SameText('<>', AComparator) then
+    Result := ne
   else if SameText('<', AComparator) then
     Result := lt
   else if SameText('<=', AComparator) then
     Result := lte
   else if SameText('>', AComparator) then
     Result := gt
-//  else if SameText('>=', AComparator) then
+  else if SameText('>=', AComparator) then
+    Result := gte
   else
-    Result := gte;
+    raise Exception.CreateFmt('Invalid comparator tokem "%s"', [AComparator]);
 end;
 
 constructor TXPathComparator.Create(AComparator: string; Args: TXPathTerms);
@@ -486,50 +509,73 @@ end;
 
 function TXPathComparator.Evaluate(Node: IXMLDOMNode): TValue;
 var
+  LeftConstant, RightConstant: IXPathConstant;
   LeftExpression, RightExpression: IXPathExpression;
   LeftStatement, RightStatement: IXPathStatement;
   LeftNodes, RightNodes: IXMLDOMNodeList;
   LeftResult, RightResult: TValue;
 begin
-  if Supports(FLeftTerm, IXPathExpression, LeftExpression) then
+  if Supports(FLeftTerm, IXPathConstant, LeftConstant) then
+  begin
+    LeftResult := LeftConstant.GetValue;
+  end
+  else if Supports(FLeftTerm, IXPathExpression, LeftExpression) then
   begin
     LeftNodes := LeftExpression.Evaluate(Node);
-    LeftResult := LeftNodes.length;
+    if LeftExpression.IsAttribute then
+      LeftResult := string(LeftNodes[0].nodeValue)
+    else
+      LeftResult := LeftNodes.Length;
   end
   else if Supports(FLeftTerm, IXPathStatement, LeftStatement) then
     LeftResult := LeftStatement.Evaluate(Node);
 
-  if Supports(FRightTerm, IXPathExpression, RightExpression) then
+  if Supports(FRightTerm, IXPathConstant, RightConstant) then
+  begin
+    RightResult := RightConstant.GetValue;
+  end
+  else if Supports(FRightTerm, IXPathExpression, RightExpression) then
   begin
     RightNodes := RightExpression.Evaluate(Node);
-    RightResult := RightNodes.length;
+    if RightExpression.IsAttribute then
+      RightResult := string(RightNodes[0].nodeValue)
+    else
+      RightResult := RightNodes.Length;
   end
   else if Supports(FRightTerm, IXPathStatement, RightStatement) then
     RightResult := RightStatement.Evaluate(Node);
 
-  // todo: handle non integer results
   case FComparator of
     eq:
       begin
-       Result := LeftResult.AsInteger = RightResult.AsInteger;
+        case LeftResult.Kind of
+          tkInteger, tkInt64:
+            Result := LeftResult.AsInt64 = RightResult.AsInt64;
+          tkEnumeration:
+            Result := LeftResult.AsBoolean = RightResult.AsBoolean;
+        else
+          Result := LeftResult.AsString = RightResult.AsString;
+        end;
       end;
     ne:
       case LeftResult.Kind of
         tkInteger, tkInt64:
-          Result := LeftResult.AsInteger <> RightResult.AsInteger;
+          Result := LeftResult.AsInt64 <> RightResult.AsInt64;
         tkEnumeration:
           Result := LeftResult.AsBoolean <> RightResult.AsBoolean;
-        else
-          raise EProgrammerNotFound.Create('Not yet implemented');
+      else
+        Result := LeftResult.AsString = RightResult.AsString;
+        // else
+        // raise EProgrammerNotFound.Create('Not yet implemented');
       end;
     lt:
-       Result := LeftResult.AsInteger < RightResult.AsInteger;
+      Result := LeftResult.AsInteger < RightResult.AsInteger;
     lte:
-       Result := LeftResult.AsInteger <= RightResult.AsInteger;
+      Result := LeftResult.AsInteger <= RightResult.AsInteger;
     gt:
-       Result := LeftResult.AsInteger > RightResult.AsInteger;
+      Result := LeftResult.AsInteger > RightResult.AsInteger;
     gte:
-       Result := LeftResult.AsInteger >= RightResult.AsInteger;
+      Result := LeftResult.AsInteger >= RightResult.AsInteger;
   end;
 end;
 
@@ -539,7 +585,7 @@ function TXPathBinary.BinaryFromString(ABinary: string): TBinaryOperator;
 begin
   if SameText('and', ABinary) then
     Result := _and
-//  else if SameText('or', ABinary) then
+    // else if SameText('or', ABinary) then
   else
     Result := _or;
 end;
@@ -627,7 +673,7 @@ function TXPathUnary.UnaryFromString(AUnary: string): TUnaryOperator;
 begin
   if SameText('', AUnary) then
     Result := straight
-  //else if SameText('not', AUnary) then
+    // else if SameText('not', AUnary) then
   else
     Result := negation;
 end;
@@ -642,16 +688,23 @@ end;
 
 function TXPathExpression.Evaluate(Node: IXMLDOMNode): IXMLDOMNodeList;
 begin
-//  try
-    Result := Node.selectNodes(FXPath);
-//  except
-//    Result := nil; // should this be logged ?
-//  end;
+  // try
+  // if FXPath.StartsWith('''') then
+
+  Result := Node.selectNodes(FXPath);
+  // except
+  // Result := nil; // should this be logged ?
+  // end;
 end;
 
 function TXPathExpression.GetValue: string;
 begin
   Result := FXPath;
+end;
+
+function TXPathExpression.IsAttribute: Boolean;
+begin
+  Result := FXPath.EndsWith('@value', True);
 end;
 
 { TXPathFunction }
@@ -671,13 +724,13 @@ end;
 
 function TXPathFunction.Evaluate(Node: IXMLDOMNode): TValue;
 var
+  Constant: IXPathConstant;
   Statement: IXPathStatement;
   Expression: IXPathExpression;
   Nodes: IXMLDOMNodeList;
   Match: string;
 begin
   Result := False;
-
 
   if SameText('exists', FFunction) then
   begin
@@ -691,7 +744,10 @@ begin
   end
   else if SameText('concat', FFunction) then
   begin
-    if Supports(FArgs[0], IXPathExpression, Expression) then
+    // todo: needs refinment
+    if Supports(FArgs[0], IXPathConstant, Constant) then
+      Result := Constant.GetValue
+    else if Supports(FArgs[0], IXPathExpression, Expression) then
     begin
       Nodes := Expression.Evaluate(Node);
       if Supports(FArgs[1], IXPathExpression, Expression) then
@@ -705,6 +761,7 @@ begin
   end
   else if SameText('starts-with', FFunction) then
   begin
+
     if Supports(FArgs[0], IXPathExpression, Expression) then
     begin
       Nodes := Expression.Evaluate(Node);
@@ -714,7 +771,15 @@ begin
         Match := Match.Replace('''', '').Replace('"', '');
         if (Nodes <> nil) and (Nodes.Length = 1) then // todo: iterate through nodes ??
           Result := Pos(Match, Nodes[0].nodeValue) = 1;
+      end
+      else if Supports(FArgs[1], IXPathConstant, Constant) then
+      begin
+        Match := Constant.GetValue.AsString;
+        Match := Match.Replace('''', '').Replace('"', '');
+        if (Nodes <> nil) and (Nodes.Length = 1) then // todo: iterate through nodes ??
+          Result := Pos(Match, Nodes[0].nodeValue) = 1;
       end;
+
     end;
   end
   else if SameText('count', FFunction) then
@@ -724,7 +789,7 @@ begin
     begin
       Nodes := Expression.Evaluate(Node);
       if Nodes <> nil then
-        Result := Nodes.length;
+        Result := Nodes.Length;
     end
     else if Supports(FArgs[0], IXPathStatement, Statement) then
       Result := Statement.Evaluate(Node);
@@ -732,6 +797,27 @@ begin
 
 end;
 
+{ TXPathConstant }
+
+constructor TXPathConstant.Create(AValue: string);
+var
+  Tmp: Int64;
+begin
+  inherited Create;
+  if AValue.StartsWith('''') or AValue.StartsWith('"') then
+    AValue := Copy(AValue, 2);
+  if AValue.EndsWith('''') or AValue.EndsWith('"') then
+    AValue := Copy(AValue, 1, Length(AValue) - 1);
+  if Tmp.TryParse(AValue, Tmp) then
+    FValue := Tmp
+  else
+    FValue := AValue;
+end;
+
+function TXPathConstant.GetValue: TValue;
+begin
+  Result := FValue;
+end;
 
 end.
 

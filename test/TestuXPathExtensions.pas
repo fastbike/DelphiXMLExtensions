@@ -2,7 +2,7 @@
 //
 // Delphi XML Extensions
 //
-// Copyright (c) 2017-2019 David Moorhouse
+// Copyright (c) 2017-2021 David Moorhouse
 //
 // https://github.com/fastbike/DelphiXMLExtensions
 //
@@ -59,23 +59,23 @@ type
     procedure Test5a;
     procedure Test5b;
     procedure Test5c;
+    procedure Test5d;
     procedure Test6;
     procedure Test7;
     procedure Test8;
+    procedure Test8a;
+    procedure Test8b;
     procedure Test9;
     procedure Test10;
+    procedure Test11;
   end;
-
 
 implementation
 
 uses
   Winapi.msxmlIntf, DXMLPathExtensions.Utils;
 
-
-
 { TestXPathExtensions }
-
 
 procedure TestXPathExtensions.TearDown;
 begin
@@ -118,7 +118,6 @@ begin
   Actual := FEvaluator.Evaluate(Node);
   CheckTrue(Actual);
 end;
-
 
 procedure TestXPathExtensions.Test2;
 var
@@ -168,13 +167,12 @@ begin
   Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
   Node := Doc.documentElement;
 
-//  FEvaluator := TContentList.Create('not(exists(f:contained/*/f:meta/f:versionId)) and not(exists(f:contained/*/f:meta/f:lastUpdated))');
+  // FEvaluator := TContentList.Create('not(exists(f:contained/*/f:meta/f:versionId)) and not(exists(f:contained/*/f:meta/f:lastUpdated))');
   FEvaluator := TXPathEvaluator.Create('not(exists(f:contained/*/f:meta/f:versionId))');
   FEvaluator.Compile;
   Actual := FEvaluator.Evaluate(Node);
   CheckTrue(Actual);
 end;
-
 
 procedure TestXPathExtensions.Test4a;
 var
@@ -188,8 +186,9 @@ begin
   Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
   Node := Doc.documentElement;
 
-  FEvaluator := TXPathEvaluator.Create('not(exists(f:contained/*/f:meta/f:versionId)) and not(exists(f:contained/*/f:meta/f:lastUpdated))');
-//  FEvaluator := TContentList.Create('not(exists(f:contained/*/f:meta/f:versionId))');
+  FEvaluator := TXPathEvaluator.Create
+    ('not(exists(f:contained/*/f:meta/f:versionId)) and not(exists(f:contained/*/f:meta/f:lastUpdated))');
+  // FEvaluator := TContentList.Create('not(exists(f:contained/*/f:meta/f:versionId))');
   FEvaluator.Compile;
   Actual := FEvaluator.Evaluate(Node);
   CheckTrue(Actual);
@@ -207,8 +206,12 @@ begin
   Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
   Node := Doc.documentElement;
 
-  //todo: change quotes ??
-
+  // single quotes
+  FEvaluator := TXPathEvaluator.Create('starts-with(//f:reference/@value, ''#'')');
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
+  CheckTrue(Actual);
+  // double quotes
   FEvaluator := TXPathEvaluator.Create('starts-with(//f:reference/@value, "#")');
   FEvaluator.Compile;
   Actual := FEvaluator.Evaluate(Node);
@@ -227,7 +230,12 @@ begin
   Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
   Node := Doc.documentElement;
 
-  //todo: change quotes ??
+  // single quotes
+  FEvaluator := TXPathEvaluator.Create('starts-with(//f:reference/@value, ''#'')');
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
+  CheckFalse(Actual);
+  // double quotes
   FEvaluator := TXPathEvaluator.Create('starts-with(//f:reference/@value, "#")');
   FEvaluator.Compile;
   Actual := FEvaluator.Evaluate(Node);
@@ -246,8 +254,13 @@ begin
   Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
   Node := Doc.documentElement;
 
-  //todo: change quotes ??
+  // single quotes
   FEvaluator := TXPathEvaluator.Create('not(starts-with(//f:reference/@value, ''#''))');
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
+  CheckFalse(Actual);
+  // double quotes
+  FEvaluator := TXPathEvaluator.Create('not(starts-with(//f:reference/@value, "#"))');
   FEvaluator.Compile;
   Actual := FEvaluator.Evaluate(Node);
   CheckFalse(Actual);
@@ -263,14 +276,39 @@ begin
   Text := '<?xml version="1.0"?><Patient xmlns="http://hl7.org/fhir"><subject><reference value="pat1"/></subject></Patient>';
   Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
   Node := Doc.documentElement;
-
-  //todo: change quotes ??
+  // single quotes
   FEvaluator := TXPathEvaluator.Create('not(starts-with(//f:reference/@value, ''#''))');
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
+  CheckTrue(Actual);
+  // double quotes
+  FEvaluator := TXPathEvaluator.Create('not(starts-with(//f:reference/@value, "#"))');
   FEvaluator.Compile;
   Actual := FEvaluator.Evaluate(Node);
   CheckTrue(Actual);
 end;
 
+procedure TestXPathExtensions.Test5d;
+var
+  Text: string;
+  Doc: IXMLDOMDocument3;
+  Node: IXMLDOMNode;
+  Actual: Boolean;
+begin
+  Text := '<?xml version="1.0"?><Patient xmlns="http://hl7.org/fhir"><subject><reference value="pat1"/></subject></Patient>';
+  Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
+  Node := Doc.documentElement;
+  // single quotes
+  FEvaluator := TXPathEvaluator.Create('not(starts-with(//f:reference/@value,''pat''))');
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
+  CheckFalse(Actual);
+  // double quotes
+  FEvaluator := TXPathEvaluator.Create('not(starts-with(//f:reference/@value,"pat"))');
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
+  CheckFalse(Actual);
+end;
 
 procedure TestXPathExtensions.Test6;
 var
@@ -283,19 +321,18 @@ begin
   Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
   Node := Doc.documentElement;
 
-  //todo: change quotes ??
+  // todo: change quotes ??
 
 
-//  FEvaluator := TXPathEvaluator.Create('exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, "#")]|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, "#")])');
+  // FEvaluator := TXPathEvaluator.Create('exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, "#")]|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, "#")])');
 
-  FEvaluator := TXPathEvaluator.Create('ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(/f:reference/@value, "#")]');
-
+  FEvaluator := TXPathEvaluator.Create
+    ('ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(/f:reference/@value, "#")]');
 
   FEvaluator.Compile;
   Actual := FEvaluator.Evaluate(Node);
   CheckFalse(Actual);
 end;
-
 
 procedure TestXPathExtensions.Test7;
 var
@@ -309,17 +346,16 @@ begin
   Node := Doc.documentElement;
 
   FEvaluator := TXPathEvaluator.Create('starts-with(//f:reference/@value, "#") or starts-with(//f:reference/@value, "?")');
-//  FEvaluator := TXPathEvaluator.Create('not(starts-with(//f:reference/@value, ''#''))');
+  // FEvaluator := TXPathEvaluator.Create('not(starts-with(//f:reference/@value, ''#''))');
 
 
-//  FEvaluator := TXPathEvaluator.Create('(count(f:numerator) = count(f:denominator))');// and ((count(f:numerator) > 0) or (count(f:extension) > 0))
-//  (count(f:numerator) = count(f:denominator)) and ((count(f:numerator) > 0) or (count(f:extension) > 0))
+  // FEvaluator := TXPathEvaluator.Create('(count(f:numerator) = count(f:denominator))');// and ((count(f:numerator) > 0) or (count(f:extension) > 0))
+  // (count(f:numerator) = count(f:denominator)) and ((count(f:numerator) > 0) or (count(f:extension) > 0))
 
   FEvaluator.Compile;
   Actual := FEvaluator.Evaluate(Node);
   CheckTrue(Actual);
 end;
-
 
 procedure TestXPathExtensions.Test8;
 var
@@ -332,13 +368,54 @@ begin
   Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
   Node := Doc.documentElement;
 
-//  FEvaluator := TXPathEvaluator.Create('starts-with(//f:reference/@value, "#") or starts-with(//f:reference/@value, "?")');
-//  FEvaluator := TXPathEvaluator.Create('not(starts-with(//f:reference/@value, ''#'') or starts-with(//f:reference/@value, "?"))');
+  // FEvaluator := TXPathEvaluator.Create('starts-with(//f:reference/@value, "#") or starts-with(//f:reference/@value, "?")');
+  // FEvaluator := TXPathEvaluator.Create('not(starts-with(//f:reference/@value, ''#'') or starts-with(//f:reference/@value, "?"))');
 
+  FEvaluator := TXPathEvaluator.Create('(count(//f:reference) >= count(/f:subject))');
+  // and ((count(f:numerator) > 0) or (count(f:extension) > 0))
+  // (count(f:numerator) = count(f:denominator)) and ((count(f:numerator) > 0) or (count(f:extension) > 0))
 
-  FEvaluator := TXPathEvaluator.Create('(count(//f:reference) >= count(/f:subject))');// and ((count(f:numerator) > 0) or (count(f:extension) > 0))
-//  (count(f:numerator) = count(f:denominator)) and ((count(f:numerator) > 0) or (count(f:extension) > 0))
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
+  CheckTrue(Actual);
+end;
 
+procedure TestXPathExtensions.Test8a;
+var
+  Text: string;
+  Doc: IXMLDOMDocument3;
+  Node: IXMLDOMNode;
+  Actual: Boolean;
+begin
+  Text := '<?xml version="1.0"?><Patient xmlns="http://hl7.org/fhir"><subject><reference value="pat1"/></subject></Patient>';
+  Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
+  Node := Doc.documentElement;
+
+  // operand as number
+  FEvaluator := TXPathEvaluator.Create('(count(//f:reference) = 1)');
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
+  CheckTrue(Actual);
+  // operand as text
+  FEvaluator := TXPathEvaluator.Create('(count(//f:reference) = "1")');
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
+  CheckTrue(Actual);
+end;
+
+procedure TestXPathExtensions.Test8b;
+var
+  Text: string;
+  Doc: IXMLDOMDocument3;
+  Node: IXMLDOMNode;
+  Actual: Boolean;
+begin
+  Text := '<?xml version="1.0"?><Patient xmlns="http://hl7.org/fhir"><subject><reference value="pat1"/></subject></Patient>';
+  Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
+  Node := Doc.documentElement;
+
+  // comparator as non standard "not equals"
+  FEvaluator := TXPathEvaluator.Create('(count(//f:reference) <> 0)');
   FEvaluator.Compile;
   Actual := FEvaluator.Evaluate(Node);
   CheckTrue(Actual);
@@ -355,7 +432,8 @@ begin
   Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
   Node := Doc.documentElement;
 
-  FEvaluator := TXPathEvaluator.Create('not(starts-with(f:reference/@value, "#")) or exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, "#")]'
+  FEvaluator := TXPathEvaluator.Create
+    ('not(starts-with(f:reference/@value, "#")) or exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, "#")]'
     + '|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, "#")])');
 
   FEvaluator.Compile;
@@ -374,20 +452,41 @@ begin
   Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
   Node := Doc.documentElement;
 
-//'not(exists(for $id in f:contained/*/@id return $id[not(ancestor::f:contained/parent::*/descendant::f:reference/@value=concat(''#'', $id))]))'
+  // 'not(exists(for $id in f:contained/*/@id return $id[not(ancestor::f:contained/parent::*/descendant::f:reference/@value=concat(''#'', $id))]))'
 
   // this is broken as it cannot handle the first "=" symbol
-  FEvaluator := TXPathEvaluator.Create('not(exists(ancestor::f:contained/parent::*/descendant::f:reference/@value=concat("#", "123")))');
-
-
+  FEvaluator := TXPathEvaluator.Create
+    ('not(exists(ancestor::f:contained/parent::*/descendant::f:reference/@value=concat("#", "123")))');
 
   FEvaluator.Compile;
   Actual := FEvaluator.Evaluate(Node);
   CheckTrue(Actual);
 end;
 
+procedure TestXPathExtensions.Test11;
+var
+  Text: string;
+  Doc: IXMLDOMDocument3;
+  Node: IXMLDOMNode;
+  Actual: Boolean;
+begin
+  Text := '<?xml version="1.0"?><Bundle xmlns="http://hl7.org/fhir"><total value="0"/><type value="batch"/></Bundle>';
+  Doc := TXPath.Create(Text, ['http://hl7.org/fhir'], ['f']);
+  Node := Doc.documentElement;
 
+  // this will fail because not allowed to contain count and type
+  FEvaluator := TXPathEvaluator.Create('not(f:total) or (f:type/@value = ''searchset'') or (f:type/@value = "history")');
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
+  CheckFalse(Actual);
 
+  // this will pass because is allowed to contain count and type
+  FEvaluator := TXPathEvaluator.Create('(f:total) or (f:type/@value = ''searchset'') or (f:type/@value = "history")');
+  FEvaluator.Compile;
+  Actual := FEvaluator.Evaluate(Node);
+  CheckTrue(Actual);
+
+end;
 
 initialization
 
