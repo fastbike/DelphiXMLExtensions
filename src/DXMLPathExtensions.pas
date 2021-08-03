@@ -57,7 +57,7 @@ unit DXMLPathExtensions;
   - enumeration: for / return
   - functions: exists, concat
 
-
+functions as per https://developer.mozilla.org/en-US/docs/Web/XPath/Functions
 
 *)
 
